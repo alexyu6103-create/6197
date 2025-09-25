@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>佳必琪 (6197) 互動式投資報告</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: The application is designed as a single-page dashboard, moving from a high-level overview to specific deep dives. The structure is thematic: 1. Overview (key metrics & regional sales), 2. Growth Drivers (core AI & Optical narratives), 3. Product & Revenue Analysis (interactive forecast chart), 4. Valuation (interactive DCF model), 5. Risk/Opportunity Summary. This flow guides the user from understanding the current state to exploring future potential and its associated risks, making it more intuitive than a simple Q&A format. The interactive DCF calculator is the centerpiece, allowing users to test their own assumptions and understand value sensitivity. -->
+    <!-- Visualization & Content Choices: 
+        - Regional Sales: Goal: Inform on market distribution. Method: Donut Chart. Interaction: Hover tooltips. Justification: Quickly shows proportions of key markets. Library: Chart.js.
+        - Revenue Forecast: Goal: Show future growth and product mix shift. Method: Stacked Bar Chart. Interaction: Hover tooltips for segment breakdown. Justification: Effectively visualizes both total growth and the increasing dominance of AI/Optical segments over time. Library: Chart.js.
+        - DCF Valuation: Goal: Allow user exploration of valuation. Method: Interactive Sliders updating a summary display. Interaction: User-driven input for discount rate and growth rate recalculates fair value instantly. Justification: Transforms a static valuation into an engaging tool for sensitivity analysis, which is crucial for investment decisions. Method: Vanilla JS.
+        - Key Data: Goal: Inform quickly. Method: Styled KPI cards. Interaction: None. Justification: Highlights the most important financial figures for quick scanning. Method: HTML/Tailwind.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #FDFBF8;
+            color: #3a3a3a;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 450px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+        }
+        .nav-link:hover {
+            color: #D97706;
+        }
+        .nav-link.active {
+            color: #D97706;
+            font-weight: 700;
+            border-bottom: 2px solid #D97706;
+        }
+        .kpi-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.07);
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #F59E0B;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #F59E0B;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-amber-700">佳必琪 (6197) 投資報告</h1>
+            <div class="hidden md:flex space-x-8">
+                <a href="#overview" class="nav-link text-gray-600 pb-1">總覽</a>
+                <a href="#drivers" class="nav-link text-gray-600 pb-1">成長動能</a>
+                <a href="#products" class="nav-link text-gray-600 pb-1">營收分析</a>
+                <a href="#valuation" class="nav-link text-gray-600 pb-1">價值評估</a>
+                <a href="#risks" class="nav-link text-gray-600 pb-1">風險與機遇</a>
+            </div>
+             <div class="md:hidden">
+                <select id="mobile-nav" class="bg-white border border-gray-300 text-gray-700 rounded-md p-1">
+                    <option value="#overview">總覽</option>
+                    <option value="#drivers">成長動能</option>
+                    <option value="#products">營收分析</option>
+                    <option value="#valuation">價值評估</option>
+                    <option value="#risks">風險與機遇</option>
+                </select>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
+        
+        <section id="overview" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-800">營運總覽與核心指標</h2>
+                <p class="text-gray-500 mt-2">從關鍵數據快速掌握佳必琪的營運現況與市場定位。</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                <div class="kpi-card text-center">
+                    <h3 class="text-gray-500 text-lg">EPS 折現合理價</h3>
+                    <p id="fair-value-kpi" class="text-4xl font-bold text-amber-600 mt-2">NT$ 288</p>
+                    <p class="text-xs text-gray-400 mt-1">基於 10% 折現率 & 2% 永續成長率</p>
+                </div>
+                <div class="kpi-card text-center">
+                    <h3 class="text-gray-500 text-lg">2026 預估 EPS</h3>
+                    <p class="text-4xl font-bold text-gray-700 mt-2">18.6 元</p>
+                     <p class="text-xs text-gray-400 mt-1">模型預估值</p>
+                </div>
+                <div class="kpi-card text-center">
+                    <h3 class="text-gray-500 text-lg">2024 總營收</h3>
+                    <p class="text-4xl font-bold text-gray-700 mt-2">67.65 億</p>
+                    <p class="text-xs text-gray-400 mt-1">年對年創新高</p>
+                </div>
+                <div class="kpi-card text-center">
+                    <h3 class="text-gray-500 text-lg">2025-30 營收 CAGR</h3>
+                    <p id="cagr-kpi" class="text-4xl font-bold text-green-600 mt-2">18.6%</p>
+                    <p class="text-xs text-gray-400 mt-1">由 AI 伺服器與光通訊驅動</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-center">
+                <div class="lg:col-span-2">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-700">公司簡介與市場分布</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        佳必琪（JPC Connectivity）為全球領先的連接解決方案供應商，產品涵蓋 AI 伺服器、光通訊、工業自動化與電動車等多個高成長領域。公司憑藉與 NVIDIA 等頂尖客戶的深度合作，以及在越南、美國的全球化產能佈局，成功卡位 AI 時代的核心供應鏈。
+                    </p>
+                    <p class="text-gray-600 leading-relaxed mt-4">
+                        2024年，外銷比重高達 83.7%，主要市場為美國及中國，展現其全球競爭力。
+                    </p>
+                </div>
+                <div class="lg:col-span-3">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <div class="chart-container h-[300px] md:h-[350px]">
+                            <canvas id="salesDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="drivers" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-800">雙引擎成長動能</h2>
+                <p class="text-gray-500 mt-2">解析驅動佳必琪未來成長的兩大核心業務：AI 伺服器與光通訊。</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">🤖 AI 伺服器：需求「超瘋狂」</h3>
+                    <p class="text-gray-600 mb-4">作為 NVIDIA GB200/GB300 MGX 系列的關鍵供應商，佳必琪直接受益於 AI 伺服器需求的爆發性成長。AI 應用營收佔比已突破三成，並預期持續攀升。</p>
+                    <ul class="space-y-3">
+                        <li class="flex items-start">
+                            <span class="text-amber-600 font-bold mr-3">✓</span>
+                            <span class="text-gray-700"><strong>高速連接方案:</strong> 提供 MCIO、PCIe 6.0/Gen-Z 等高速連接器與線纜，為 GB200 核心元件。</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-amber-600 font-bold mr-3">✓</span>
+                            <span class="text-gray-700"><strong>電源解決方案:</strong> 供應 60A Power Whip、Busbar 等高功率電源產品，獲 OCP 認證。</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-amber-600 font-bold mr-3">✓</span>
+                            <span class="text-gray-700"><strong>液冷技術布局:</strong> 積極開發液冷快接頭 (UQD)，預計 2026 年試產，搶佔下一代散熱商機。</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">💡 光通訊：拓展新藍海</h3>
+                    <p class="text-gray-600 mb-4">隨著數據流量遽增，光通訊成為資料中心升級的關鍵。佳必琪成功打入歐洲電信與東南亞數據中心市場，訂單能見度已達 2026 年。</p>
+                    <ul class="space-y-3">
+                        <li class="flex items-start">
+                             <span class="text-amber-600 font-bold mr-3">✓</span>
+                            <span class="text-gray-700"><strong>高階光收發模組:</strong> 100G DWDM/CWDM 光模組切入歐洲電信客戶，並開發 200G 矽光子模組。</span>
+                        </li>
+                        <li class="flex items-start">
+                             <span class="text-amber-600 font-bold mr-3">✓</span>
+                            <span class="text-gray-700"><strong>數據中心解決方案:</strong> 光學被動高頻線束等產品進入東南亞 Tier-1 數據中心，拓展美、日市場。</span>
+                        </li>
+                        <li class="flex items-start">
+                             <span class="text-amber-600 font-bold mr-3">✓</span>
+                            <span class="text-gray-700"><strong>技術創新:</strong> 與台科大合作開發 CPO（共同封裝光學）平台，掌握次世代技術。</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="products" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-800">產品線營收分析與預測</h2>
+                <p class="text-gray-500 mt-2">預估 2025 至 2030 年各產品線的營收貢獻與成長趨勢。AI 伺服器將成為絕對主力。</p>
+            </div>
+            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
+                <div class="chart-container">
+                    <canvas id="revenueForecastChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="valuation" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-800">互動式 EPS 折現模型</h2>
+                <p class="text-gray-500 mt-2">透過調整關鍵假設，動態計算佳必琪的合理價值。模型已考量公司的高成長與高資本支出階段。</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                <div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+                     <h3 class="text-2xl font-bold text-gray-700 mb-6 text-center">估值結果</h3>
+                     <div class="text-center">
+                         <p class="text-lg text-gray-500">預估合理價 (每股)</p>
+                         <p id="fair-value-display" class="text-7xl font-bold text-amber-600 my-4">NT$ 288</p>
+                     </div>
+                     <div class="mt-8 space-y-4">
+                         <div>
+                             <div class="flex justify-between items-center mb-2">
+                                 <label for="discount-rate" class="font-medium text-gray-700">折現率 (WACC)</label>
+                                 <span id="discount-rate-value" class="font-bold text-amber-700 text-lg">10.0%</span>
+                             </div>
+                             <input type="range" id="discount-rate" min="7" max="13" step="0.1" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider">
+                         </div>
+                         <div>
+                             <div class="flex justify-between items-center mb-2">
+                                 <label for="perpetual-growth" class="font-medium text-gray-700">永續成長率</label>
+                                 <span id="perpetual-growth-value" class="font-bold text-amber-700 text-lg">2.0%</span>
+                             </div>
+                             <input type="range" id="perpetual-growth" min="1" max="4" step="0.1" value="2" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider">
+                         </div>
+                     </div>
+                </div>
+                <div class="text-gray-600">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-700">EPS折現模型假設</h3>
+                    <ul class="space-y-3 bg-slate-50 p-6 rounded-lg border">
+                        <li class="flex items-start">
+                          <span class="text-gray-500 mr-3">▪️</span>
+                          <span><strong>第一階段 (2025-2029):</strong> 預估每股盈餘 (EPS) 成長率為 18.6%。</span>
+                        </li>
+                        <li class="flex items-start">
+                           <span class="text-gray-500 mr-3">▪️</span>
+                          <span><strong>第二階段 (2030-2034):</strong> EPS 成長率放緩至 3.2%。</span>
+                        </li>
+                        <li class="flex items-start">
+                          <span class="text-gray-500 mr-3">▪️</span>
+                           <span><strong>永續階段:</strong> 假設公司進入成熟期，EPS永續成長率為 2%。</span>
+                        </li>
+                         <li class="flex items-start">
+                          <span class="text-gray-500 mr-3">▪️</span>
+                          <span><strong>其他假設:</strong> 流通在外股數約 1.25 億股。</span>
+                        </li>
+                    </ul>
+                    <p class="text-sm text-gray-500 mt-4 italic">免責聲明：本估值僅為基於公開資訊與模型假設的學術探討，不構成任何投資建議。</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="risks" class="scroll-mt-20">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-800">機遇與風險</h2>
+                <p class="text-gray-500 mt-2">綜合評估佳必琪未來發展的潛在利多與挑戰。</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-green-50 border-l-4 border-green-500 p-6 rounded-r-lg">
+                    <h3 class="text-2xl font-bold text-green-800 mb-4">主要機遇 (Opportunities)</h3>
+                    <ul class="space-y-2 list-disc list-inside text-green-900">
+                        <li><strong>AI 伺服器換代潮:</strong> 深度綁定 NVIDIA 生態系，直接受益於 GB200/300 的巨大需求。</li>
+                        <li><strong>新技術卡位成功:</strong> 液冷、CPO 等次世代技術佈局領先，有望創造更高毛利。</li>
+                        <li><strong>全球市場擴張:</strong> 光通訊產品成功打入歐洲、東南亞市場，開拓新成長曲線。</li>
+                        <li><strong>供應鏈彈性:</strong> 越南產能大幅提升，可靈活應對地緣政治與關稅風險。</li>
+                    </ul>
+                </div>
+                <div class="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-lg">
+                    <h3 class="text-2xl font-bold text-red-800 mb-4">潛在風險 (Risks)</h3>
+                    <ul class="space-y-2 list-disc list-inside text-red-900">
+                        <li><strong>地緣政治不確定性:</strong> 中美貿易關係與關稅政策變動可能影響供應鏈與成本。</li>
+                        <li><strong>匯率波動:</strong> 外銷佔比高，台幣匯率波動對營收與毛利構成影響。</li>
+                        <li><strong>市場競爭加劇:</strong> 高速連接器與光通訊領域競爭者眾，價格壓力可能浮現。</li>
+                        <li><strong>客戶集中度:</strong> 對單一或少數大客戶依賴較深，需注意其拉貨節奏變化。</li>
+                    </ul>
+                </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="bg-white border-t mt-16">
+            <div class="container mx-auto px-6 py-4 text-center text-gray-500 text-sm">
+                <p>&copy; 2025 互動式投資報告. All rights reserved. For educational purposes only.</p>
+            </div>
+        </footer>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                
+                const mobileNav = document.getElementById('mobile-nav');
+                mobileNav.addEventListener('change', (e) => {
+                    window.location.href = e.target.value;
+                });
+                
+                const navLinks = document.querySelectorAll('.nav-link');
+                const sections = document.querySelectorAll('section');
+
+                const observerOptions = {
+                    root: null,
+                    rootMargin: '0px',
+                    threshold: 0.4
+                };
+
+                const observer = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            navLinks.forEach(link => {
+                                link.classList.remove('active');
+                                if (link.getAttribute('href').substring(1) === entry.target.id) {
+                                    link.classList.add('active');
+                                }
+                            });
+                        }
+                    });
+                }, observerOptions);
+
+                sections.forEach(section => {
+                    observer.observe(section);
+                });
+
+                navLinks.forEach(anchor => {
+                    anchor.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        document.querySelector(this.getAttribute('href')).scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    });
+                });
+
+                const salesData = {
+                    labels: ['美國 (29.7%)', '中國 (21.1%)', '日本 (11.6%)', '其他 (21.3%)', '台灣 (16.3%)'],
+                    datasets: [{
+                        label: '2024 銷售地區分布',
+                        data: [29.7, 21.1, 11.6, 21.3, 16.3],
+                        backgroundColor: ['#4338CA', '#1D4ED8', '#0369A1', '#0891B2', '#0D9488'],
+                        borderColor: '#FDFBF8',
+                        borderWidth: 2,
+                        hoverOffset: 4
+                    }]
+                };
+
+                const salesCtx = document.getElementById('salesDistributionChart').getContext('2d');
+                new Chart(salesCtx, {
+                    type: 'doughnut',
+                    data: salesData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    font: {
+                                        size: 12,
+                                        family: "'Noto Sans TC', sans-serif"
+                                    }
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '2024 銷售地區分布',
+                                font: {
+                                    size: 16,
+                                    weight: 'bold',
+                                    family: "'Noto Sans TC', sans-serif"
+                                },
+                                padding: {
+                                    top: 10,
+                                    bottom: 20
+                                }
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+                
+                const revenueYears = ['2025', '2026', '2027', '2028', '2029', '2030'];
+                const revenueForecastData = {
+                    labels: revenueYears,
+                    datasets: [
+                        {
+                            label: 'AI 伺服器',
+                            data: [39.6, 50.1, 60.5, 74.0, 90.0, 110.0],
+                            backgroundColor: '#FB923C',
+                        },
+                        {
+                            label: '光通訊',
+                            data: [13.2, 15.1, 17.5, 20.2, 23.5, 27.5],
+                            backgroundColor: '#FACC15',
+                        },
+                        {
+                            label: '智慧連接產業',
+                            data: [30.8, 33.2, 35.9, 38.8, 41.9, 45.2],
+                            backgroundColor: '#A3E635',
+                        },
+                        {
+                            label: '物聯網與其他',
+                            data: [4.4, 4.8, 5.3, 5.8, 6.4, 7.1],
+                            backgroundColor: '#4ADE80',
+                        }
+                    ]
+                };
+                
+                const totalRevenue = revenueForecastData.datasets.reduce((acc, dataset) => {
+                    dataset.data.forEach((value, index) => {
+                        acc[index] = (acc[index] || 0) + value;
+                    });
+                    return acc;
+                }, []);
+
+                const cagr = (Math.pow(totalRevenue[totalRevenue.length - 1] / totalRevenue[0], 1 / (revenueYears.length -1)) - 1) * 100;
+                document.getElementById('cagr-kpi').innerText = cagr.toFixed(1) + '%';
+
+
+                const revenueCtx = document.getElementById('revenueForecastChart').getContext('2d');
+                new Chart(revenueCtx, {
+                    type: 'bar',
+                    data: revenueForecastData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: '產品線營收預測 (單位: 億元)',
+                                font: { size: 16, weight: 'bold', family: "'Noto Sans TC', sans-serif" },
+                                padding: { top: 10, bottom: 20 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    footer: (tooltipItems) => {
+                                        let sum = 0;
+                                        tooltipItems.forEach(function(tooltipItem) {
+                                            sum += tooltipItem.parsed.y;
+                                        });
+                                        return '總計: ' + sum.toFixed(1) + ' 億';
+                                    },
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                            },
+                            y: {
+                                stacked: true,
+                                title: {
+                                    display: true,
+                                    text: '營收 (億元)'
+                                }
+                            }
+                        }
+                    }
+                });
+
+                const discountRateSlider = document.getElementById('discount-rate');
+                const perpetualGrowthSlider = document.getElementById('perpetual-growth');
+                const discountRateValue = document.getElementById('discount-rate-value');
+                const perpetualGrowthValue = document.getElementById('perpetual-growth-value');
+                const fairValueDisplay = document.getElementById('fair-value-display');
+                const fairValueKpi = document.getElementById('fair-value-kpi');
+
+                // EPS projections based on user's image logic:
+                // Start EPS (2025): 11.13 -> (1+18.6%) -> 13.2
+                // EPS (2026): 13.2 * 1.186 = 15.7
+                // ...and so on
+                const epsProjections = [13.2, 15.7, 18.6, 22.0, 26.1, 27.0, 27.8, 28.7, 29.6, 30.6];
+
+                function calculateDCF() {
+                    const wacc = parseFloat(discountRateSlider.value) / 100;
+                    const perpetualGrowth = parseFloat(perpetualGrowthSlider.value) / 100;
+
+                    discountRateValue.textContent = `${(wacc * 100).toFixed(1)}%`;
+                    perpetualGrowthValue.textContent = `${(perpetualGrowth * 100).toFixed(1)}%`;
+
+                    if (wacc <= perpetualGrowth) {
+                        fairValueDisplay.textContent = "N/A";
+                        fairValueKpi.textContent = "N/A";
+                        return;
+                    }
+
+                    let pvEpsSum = 0;
+                    for (let i = 0; i < epsProjections.length; i++) {
+                        pvEpsSum += epsProjections[i] / Math.pow(1 + wacc, i + 1);
+                    }
+
+                    const terminalEps = epsProjections[epsProjections.length - 1] * (1 + perpetualGrowth);
+                    const terminalValue = terminalEps / (wacc - perpetualGrowth);
+                    const pvTerminalValue = terminalValue / Math.pow(1 + wacc, epsProjections.length);
+
+                    const fairValuePerShare = pvEpsSum + pvTerminalValue;
+                    
+                    fairValueDisplay.textContent = `NT$ ${fairValuePerShare.toFixed(0)}`;
+                    fairValueKpi.textContent = `NT$ ${fairValuePerShare.toFixed(0)}`;
+                }
+
+                discountRateSlider.addEventListener('input', calculateDCF);
+                perpetualGrowthSlider.addEventListener('input', calculateDCF);
+
+                calculateDCF();
+            });
+        </script>
+    </body>
+    </html>
